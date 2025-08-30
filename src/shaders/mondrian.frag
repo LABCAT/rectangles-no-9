@@ -10,6 +10,10 @@ uniform float u_gridCols;
 uniform float u_gridRows;
 uniform float u_maxFadeDelay;
 uniform float u_retriggerTime;
+uniform float u_currentCue;
+uniform float u_barStartCue;
+uniform float u_cuesInBar;
+uniform float u_totalCells;
 
 // Mondrian colors
 vec3 white = vec3(0.96, 0.96, 0.96);
@@ -45,6 +49,11 @@ float random(vec2 st) {
 * @return Float representing fade progress from 0.0 to 1.0
 */
 float cellFadeIn(vec2 cellCoord, float duration) {
+   // If no fade delay, show cell instantly
+   if (u_maxFadeDelay <= 0.0) {
+       return 1.0;
+   }
+   
    // Random delay for each cell 
    float delay = random(cellCoord) * u_maxFadeDelay;
    
@@ -61,6 +70,23 @@ void main() {
    // Create grid using separate row/column counts
   vec2 grid = vec2(floor(st.x * u_gridCols), floor(st.y * u_gridRows));
   
+  // Calculate cell index and reveal logic
+  float cellIndex = grid.y * u_gridCols + grid.x;
+  float cuesElapsed = u_currentCue - u_barStartCue;
+  
+  // On the last cue of the bar, reveal all cells
+  bool isLastCue = (cuesElapsed >= (u_cuesInBar - 1.0));
+  
+  // Calculate how many cells should be visible
+  float cellsVisible = isLastCue ? u_totalCells : (cuesElapsed + 1.0);
+  
+  // Simple approach: use cell index directly with random offset
+  float randomOffset = random(grid);
+  float adjustedIndex = mod(cellIndex + randomOffset * u_totalCells, u_totalCells);
+  
+  // Cell is visible if its adjusted index < number of cells that should be visible
+  float isVisible = step(adjustedIndex, cellsVisible - 1.0);
+  
   // Choose color based on grid position using random values
   vec3 color;
   float rand = random(grid);
@@ -76,7 +102,7 @@ void main() {
   }
 
   float fadeValue = cellFadeIn(grid, 1.0);
-  color = mix(black, color, fadeValue);
+  color = mix(black, color, fadeValue * isVisible);
 
   float lineWidth = 0.02;
   if (st.x < lineWidth/3.0 || st.x > (1.0 - lineWidth/3.0) || 
@@ -84,13 +110,12 @@ void main() {
     color = black;
   }
 
-  vec2 grid3 = st * 3.0;
    // Grid position within each cell (for drawing lines)
   vec2 gridPos = vec2(fract(st.x * u_gridCols), fract(st.y * u_gridRows));
   
   // Adjust lineWidth for aspect ratio
   float lineWidthX = lineWidth;
-  float lineWidthY = lineWidth * (u_resolution.x / u_resolution.y);
+  float lineWidthY = lineWidth;
 
   // Then update the line calculation
   float line = smoothstep(0.0, lineWidthX, gridPos.x) *
@@ -98,8 +123,8 @@ void main() {
               smoothstep(0.0, lineWidthY, gridPos.y) *
               smoothstep(1.0, 1.0-lineWidthY, gridPos.y);
 
-  // Apply lines
-  if (line < 0.5) color = black;
+  // Apply lines only to visible cells
+  if (line < 0.5 && isVisible > 0.5) color = black;
   
   gl_FragColor = vec4(color, 1.0);
 }
