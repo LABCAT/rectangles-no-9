@@ -5,15 +5,23 @@ const midi = new URL("@audio/rectangles-no-9.mid", import.meta.url).href;
 const vertShaderPath = new URL("@shaders/mondrian.vert", import.meta.url).href;
 const fragShaderPath = new URL("@shaders/mondrian.frag", import.meta.url).href;
 
-const RectanglesNo8 = (p) => {
+const RectanglesNo9 = (p) => {
+     /** 
+     * Core audio properties
+     */
     p.song = null;
-
-    p.audioLoaded = false; 
-
+    p.PPQ = 3840 * 4;
+    p.bpm = 96;
+    p.audioLoaded = false;
     p.songHasFinished = false;
 
     p.mondrianShader  = null;
     
+    p.gridCols = 4.0;
+    p.gridRows = 5.0;
+    p.maxFadeDelay = 0.25;
+    p.shaderRetriggerTime = 0.0;
+    p.totalCells = p.gridCols * p.gridRows;
 
     p.preload = () => {
         p.song = p.loadSound(audio, p.loadMidi);
@@ -32,18 +40,23 @@ const RectanglesNo8 = (p) => {
     };
 
     p.draw = () => {
-        p.shader(p.mondrianShader );
+        p.background(0);
+        p.shader(p.mondrianShader);
             
         // Pass uniforms to shader
-        p.mondrianShader .setUniform('u_resolution', [p.width, p.height]);
-        p.mondrianShader .setUniform('u_time', p.millis() / 1000.0);
+        p.mondrianShader.setUniform('u_resolution', [p.width, p.height]);
+        p.mondrianShader.setUniform('u_time', p.millis() / 1000.0);
         p.mondrianShader.setUniform('u_randomSeed', p.randomSeed);
+        p.mondrianShader.setUniform('u_gridCols', p.gridCols);
+        p.mondrianShader.setUniform('u_gridRows', p.gridRows);
+        p.mondrianShader.setUniform('u_maxFadeDelay', p.maxFadeDelay);
+        p.mondrianShader.setUniform('u_retriggerTime', p.shaderRetriggerTime);
         
         // Draw fullscreen quad
         p.rect(0, 0, p.width, p.height);
         
         if(p.audioLoaded && p.song.isPlaying() || p.songHasFinished){
-            p.background(0);
+            
 
 
         }
@@ -51,9 +64,10 @@ const RectanglesNo8 = (p) => {
 
     p.loadMidi = () => {
         Midi.fromUrl(midi).then((result) => {
-            const noteSet1 = result.tracks[5].notes; // Synth 1
+            console.log(result);
+            const noteSet1 = result.tracks[5].notes; // Rodent Lead
             const noteSet2 = result.tracks[1].notes; // Sampler 2
-            p.scheduleCueSet(noteSet1, 'executeCueSet1', true);
+            p.scheduleCueSet(noteSet1, 'executeCueSet1');
             p.scheduleCueSet(noteSet2, 'executeCueSet2');
             document.getElementById("loader").classList.add("loading--complete");
             document.getElementById('play-icon').classList.add('fade-in');
@@ -77,7 +91,28 @@ const RectanglesNo8 = (p) => {
     } 
 
     p.executeCueSet1 = (note) => {
-   
+        console.log(note.currentCue);
+        
+        // 4-bar loop: 11, 11, 12, 11 cues per bar
+        // Bar starts at cues: 1, 12, 23, 35, then loops back to 1
+        const barStartCues = [1, 12, 23, 35];
+        
+        // Only change grid at the beginning of each bar
+        if (barStartCues.includes(note.currentCue)) {
+            p.gridCols = Math.floor(p.random(3, 9));
+            p.gridRows = Math.floor(p.random(3, 9));
+            p.totalCells = p.gridCols * p.gridRows;
+        }
+        
+        // Calculate note duration in seconds
+        const { currentCue, durationTicks } = note;
+        const duration = (durationTicks / p.PPQ) * (60 / p.bpm);
+        
+        // Set max fade delay based on note duration
+        // p.maxFadeDelay = duration * 0.1;
+        
+        // // Set retrigger time for animation restart
+        p.shaderRetriggerTime = p.millis() / 1000.0;
     }
 
     p.executeCueSet2 = (note) => {
@@ -133,4 +168,4 @@ const RectanglesNo8 = (p) => {
     };
 };
 
-export default RectanglesNo8;
+export default RectanglesNo9;

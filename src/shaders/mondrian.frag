@@ -5,16 +5,18 @@ uniform vec2 u_resolution;
 uniform float u_time;
 uniform float u_randomSeed;
 
+// Grid and animation control uniforms
+uniform float u_gridCols;
+uniform float u_gridRows;
+uniform float u_maxFadeDelay;
+uniform float u_retriggerTime;
+
 // Mondrian colors
 vec3 white = vec3(0.96, 0.96, 0.96);
 vec3 black = vec3(0.0, 0.0, 0.0);
 vec3 red = vec3(0.93, 0.11, 0.14);
 vec3 blue = vec3(0.0, 0.35, 0.59);
 vec3 yellow = vec3(0.97, 0.85, 0.3);
-
-// Grid dimensions
-const float GRID_COLS = 4.0; // Number of columns
-const float GRID_ROWS = 5.0; // Number of rows
 
 
 /**
@@ -42,12 +44,12 @@ float random(vec2 st) {
 * @param duration - How long each individual cell's fade should take
 * @return Float representing fade progress from 0.0 to 1.0
 */
-float cellFadeIn(vec2 cellCoord, float startTime, float duration) {
+float cellFadeIn(vec2 cellCoord, float duration) {
    // Random delay for each cell 
-   float delay = random(cellCoord) * 3.0;
+   float delay = random(cellCoord) * u_maxFadeDelay;
    
-   // Calculate fade progress (0 to 1)
-   float fadeProgress = clamp((u_time - startTime - delay) / duration, 0.0, 1.0);
+   // Calculate fade progress (0 to 1) using retrigger time
+   float fadeProgress = clamp((u_time - u_retriggerTime - delay) / duration, 0.0, 1.0);
    
    return fadeProgress;
 }
@@ -57,7 +59,7 @@ void main() {
   vec2 st = (gl_FragCoord.xy / u_resolution.xy);
   
    // Create grid using separate row/column counts
-  vec2 grid = vec2(floor(st.x * GRID_COLS), floor(st.y * GRID_ROWS));
+  vec2 grid = vec2(floor(st.x * u_gridCols), floor(st.y * u_gridRows));
   
   // Choose color based on grid position using random values
   vec3 color;
@@ -73,7 +75,7 @@ void main() {
     color = white;
   }
 
-  float fadeValue = cellFadeIn(grid, 0.0, 1.0);
+  float fadeValue = cellFadeIn(grid, 1.0);
   color = mix(black, color, fadeValue);
 
   float lineWidth = 0.02;
@@ -84,7 +86,7 @@ void main() {
 
   vec2 grid3 = st * 3.0;
    // Grid position within each cell (for drawing lines)
-  vec2 gridPos = vec2(fract(st.x * GRID_COLS), fract(st.y * GRID_ROWS));
+  vec2 gridPos = vec2(fract(st.x * u_gridCols), fract(st.y * u_gridRows));
   
   // Adjust lineWidth for aspect ratio
   float lineWidthX = lineWidth;
